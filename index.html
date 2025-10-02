@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CELO Price Tracker</title>
+  <style>
+    /* light yellow background, layout with footer at bottom */
+    :root{
+      --bg: #fff9db;
+      --card-bg: #fffef7;
+      --text: #0b2130;
+      --muted: #355066;
+      --accent: #f6c948;
+      --accent-hover: #f2b93a;
+    }
+    
+    body.dark-mode {
+      --bg: #1a1a1a;
+      --card-bg: #2a2a2a;
+      --text: #ffffff;
+      --muted: #b0b0b0;
+      --accent: #f6c948;
+      --accent-hover: #f2b93a;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;padding:0}
+    body{
+      text-align: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, "Helvetica Neue", Arial;
+      display:flex;
+      flex-direction:column;
+      min-height:100vh;
+    }
+
+    /* main takes remaining space so footer stays at bottom */
+    .main{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      padding:28px 16px 12px;
+    }
+
+    /* header/title en haut centré */
+    .header {
+      margin-bottom: 8px;
+      text-align:center;
+      position: relative;
+    }
+    .header h1{
+      font-size:1.9rem;
+      margin:0;
+      font-weight:600;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+    }
+    .celo-logo{width:36px;height:36px;}
+    
+    /* Dark mode toggle button */
+    .dark-mode-toggle {
+      position: absolute;
+      top: 0;
+      right: 20px;
+      background: var(--card-bg);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s;
+    }
+    .dark-mode-toggle:hover {
+      transform: scale(1.1);
+    }
+    .dark-mode-toggle svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* wrapper pour centrer la card verticalement */
+    .card-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* card area */
+    .card{
+      background: var(--card-bg);
+      border-radius:12px;
+      padding:18px;
+      width:100%;
+      max-width:640px;
+      box-shadow: 0 6px 18px rgba(11,33,48,0.08);
+      text-align:center;
+    }
+    .price{
+      font-size:1.5rem;
+      font-weight:700;
+      margin:6px 0;
+      color:var(--text);
+    }
+    .meta{
+      font-size:0.95rem;
+      color:var(--muted);
+      margin-bottom:8px;
+    }
+
+    /* controls */
+    .controls{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      justify-content:center;
+      align-items:center;
+      margin-top:8px;
+    }
+    .controls label{
+      font-size:0.95rem;
+      color:var(--muted);
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .controls select, .controls input[type="number"] {
+      padding:6px 8px;
+      border-radius:8px;
+      border:1px solid rgba(11,33,48,0.08);
+      background:transparent;
+      color:var(--text);
+    }
+    button#refresh{
+      background:var(--accent);
+      border:none;
+      padding:8px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    button#refresh:hover{
+      background:var(--accent-hover);
+    }
+
+    /* source text */
+    .source{
+      margin-top:12px;
+      font-size:0.9rem;
+      color:var(--muted);
+    }
+    .source a {
+      color: var(--text);
+      text-decoration: underline;
+    }
+    
+    /* Alert section */
+    .alert-section {
+      margin-top: 20px;
+      padding: 20px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(11,33,48,0.08);
+    }
+    .alert-section h3 {
+      font-size: 1.1rem;
+      margin: 0 0 12px 0;
+      color: var(--text);
+    }
+    .alert-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+    .alert-controls label {
+      font-size: 0.95rem;
+      color: var(--muted);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .alert-controls input[type="number"] {
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(11,33,48,0.08);
+      background: transparent;
+      color: var(--text);
+      width: 120px;
+    }
+    #set-alert, #clear-alert {
+      background: var(--accent);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #set-alert:hover, #clear-alert:hover {
+      background: var(--accent-hover);
+    }
+    #clear-alert {
+      background: #e74c3c;
+    }
+    #clear-alert:hover {
+      background: #c0392b;
+    }
+    .alert-status {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      min-height: 20px;
+    }
+    .alert-status.active {
+      color: #27ae60;
+      font-weight: 600;
+    }
+    .alert-status.triggered {
+      color: #e74c3c;
+      font-weight: 600;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* footer with icons fixed at bottom of page area */
+    .footer{
+      width:100%;
+      background: rgba(0,0,0,0.02);
+      display:flex;
+      justify-content:center;
+      gap:18px;
+      padding:12px 0 18px;
+      align-items:center;
+    }
+
+    /* social icons */
+    .social svg {
+      display:block;
+      transition: transform .12s ease, filter .12s ease;
+    }
+    .social {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
+    }
+
+    /* hover colors: X -> blue, Discord -> purple */
+    .social.x svg line {
+      stroke: #333;
+      transition: stroke .12s ease;
+    }
+    .social.x:hover svg line {
+      stroke: #1DA1F2;
+      transform: scale(1.05);
+    }
+    .social.discord svg path {
+      fill: #333;
+      transition: fill .12s ease, transform .12s ease;
+    }
+    .social.discord:hover svg path {
+      fill: #5865F2;
+      transform: scale(1.03);
+    }
+  </style>
+</head>
+<body>
+  <main class="main">
+    <header class="header">
+      <button class="dark-mode-toggle" id="darkModeToggle" aria-label="Toggle dark mode">
+        <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="moon-icon" style="display:none;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <h1>
+        <img src="https://cryptocurrencyjobs.co/startups/assets/logos/celo.jpg" width="50" />
+        CELO Price Tracker
+      </h1>
+    </header>
+    
+    <div class="card-wrapper">
+      <div style="width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 20px;">
+        <section class="card">
+          <div id="price" class="price">Loading price…</div>
+          <div id="last-update" class="meta">Last update: --:--:--</div>
+          <div class="controls">
+            <label>
+              Currency:
+              <select id="currency">
+                <option value="usd" selected>USD</option>
+                <option value="eur">EUR</option>
+                <option value="gbp">GBP</option>
+                <option value="uah">UAH</option>
+                <option value="btc">BTC</option>
+                <option value="eth">ETH</option>
+              </select>
+            </label>
+            <label>
+              Refresh (s):
+              <input id="interval" type="number" min="5" value="15" />
+            </label>
+            <button id="refresh">Refresh now</button>
+          </div>
+          <p class="source">
+            Source: <a href="https://www.coingecko.com/" target="_blank" rel="noopener">CoinGecko</a>.
+            (Recommended interval ≥ 10s if you use the free public API).
+          </p>
+        </section>
+        
+        <section class="card alert-section">
+          <h3>Price Alert</h3>
+          <div class="alert-controls">
+            <label>
+              Alert when price reaches:
+              <input id="alert-price" type="number" step="0.0001" placeholder="0.00" />
+            </label>
+            <button id="set-alert">Set Alert</button>
+            <button id="clear-alert" style="display:none;">Clear Alert</button>
+          </div>
+          <div id="alert-status" class="alert-status"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <a class="social x" href="https://x.com/Celo" target="_blank" rel="noopener" aria-label="Celo on X">
+      <!-- X (Twitter) logo -->
+      <svg width="28" height="28" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="#333"/>
+      </svg>
+    </a>
+    <a class="social discord" href="https://discord.com/invite/celo" target="_blank" rel="noopener" aria-label="Celo on Discord">
+      <!-- Discord logo -->
+      <svg width="28" height="28" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z" fill="#333"/>
+      </svg>
+    </a>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    // Dark mode toggle
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const sunIcon = document.querySelector('.sun-icon');
+    const moonIcon = document.querySelector('.moon-icon');
+    
+    // Check saved preference
+    if (localStorage.getItem('darkMode') === 'enabled') {
+      document.body.classList.add('dark-mode');
+      sunIcon.style.display = 'none';
+      moonIcon.style.display = 'block';
+    }
+    
+    darkModeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+      
+      if (document.body.classList.contains('dark-mode')) {
+        localStorage.setItem('darkMode', 'enabled');
+        sunIcon.style.display = 'none';
+        moonIcon.style.display = 'block';
+      } else {
+        localStorage.setItem('darkMode', 'disabled');
+        sunIcon.style.display = 'block';
+        moonIcon.style.display = 'none';
+      }
+    });
+    
+    // Price Alert System
+    const alertPriceInput = document.getElementById('alert-price');
+    const setAlertBtn = document.getElementById('set-alert');
+    const clearAlertBtn = document.getElementById('clear-alert');
+    const alertStatus = document.getElementById('alert-status');
+    
+    let priceAlert = null;
+    let alertTriggered = false;
+    
+    // Load saved alert
+    const savedAlert = localStorage.getItem('celo_price_alert');
+    if (savedAlert) {
+      priceAlert = JSON.parse(savedAlert);
+      alertPriceInput.value = priceAlert.price;
+      updateAlertUI();
+    }
+    
+    setAlertBtn.addEventListener('click', () => {
+      const targetPrice = parseFloat(alertPriceInput.value);
+      if (isNaN(targetPrice) || targetPrice <= 0) {
+        alertStatus.textContent = '⚠️ Please enter a valid price';
+        alertStatus.className = 'alert-status';
+        return;
+      }
+      
+      const currency = document.getElementById('currency').value;
+      priceAlert = { price: targetPrice, currency: currency };
+      localStorage.setItem('celo_price_alert', JSON.stringify(priceAlert));
+      alertTriggered = false;
+      updateAlertUI();
+    });
+    
+    clearAlertBtn.addEventListener('click', () => {
+      priceAlert = null;
+      alertTriggered = false;
+      alertPriceInput.value = '';
+      localStorage.removeItem('celo_price_alert');
+      updateAlertUI();
+    });
+    
+    function updateAlertUI() {
+      if (priceAlert) {
+        clearAlertBtn.style.display = 'inline-block';
+        if (alertTriggered) {
+          alertStatus.textContent = `🔔 Alert triggered! Price reached ${priceAlert.price} ${priceAlert.currency.toUpperCase()}`;
+          alertStatus.className = 'alert-status triggered';
+        } else {
+          alertStatus.textContent = `✓ Alert set for ${priceAlert.price} ${priceAlert.currency.toUpperCase()}`;
+          alertStatus.className = 'alert-status active';
+        }
+      } else {
+        clearAlertBtn.style.display = 'none';
+        alertStatus.textContent = '';
+        alertStatus.className = 'alert-status';
+      }
+    }
+    
+    // Check price alert (this should be called from your script.js after fetching price)
+    function checkPriceAlert(currentPrice, currentCurrency) {
+      if (!priceAlert || alertTriggered) return;
+      if (priceAlert.currency !== currentCurrency) return;
+      
+      if (currentPrice >= priceAlert.price) {
+        alertTriggered = true;
+        updateAlertUI();
+        
+        // Browser notification if supported
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('CELO Price Alert!', {
+            body: `CELO has reached ${currentPrice} ${currentCurrency.toUpperCase()}`,
+            icon: 'https://cryptocurrencyjobs.co/startups/assets/logos/celo.jpg'
+          });
+        }
+        
+        // Audio alert - simple beep
+        try {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.frequency.value = 800;
+          oscillator.type = 'sine';
+          gainNode.gain.value = 0.3;
+          
+          oscillator.start();
+          setTimeout(() => oscillator.stop(), 200);
+        } catch(e) {
+          console.log('Audio play failed:', e);
+        }
+      }
+    }
+    
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    
+    // Expose checkPriceAlert globally so script.js can call it
+    window.checkPriceAlert = checkPriceAlert;
+  </script>
+</body>
+</html>

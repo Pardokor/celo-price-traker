@@ -1,0 +1,98 @@
+/* light yellow background, layout with footer at bottom */
+:root{
+  --bg: #fff9db;
+  --card-bg: #fffef7;
+  --text: #0b2130;
+  --muted: #355066;
+  --accent: #f6c948;
+  --accent-hover: #f2b93a;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;padding:0}
+body{
+  text-align: center;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, "Helvetica Neue", Arial;
+  display:flex;
+  flex-direction:column;
+  min-height:100vh;
+}
+
+/* main takes remaining space so footer stays at bottom */
+.main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center; /* 🔥 centré verticalement au milieu */
+  padding:28px 16px 12px;
+}
+
+/* header/title a little higher */
+.header { margin-top: 6px; margin-bottom: 8px; text-align:center; }
+.header h1{ font-size:1.9rem; margin:0; font-weight:600; display:inline-flex; align-items:center; gap:10px; }
+.celo-logo{width:36px;height:36px;}
+
+/* card area */
+.card{
+  margin-top: 12px;
+  background: var(--card-bg);
+  border-radius:12px;
+  padding:18px;
+  width:100%;
+  max-width:640px;
+  box-shadow: 0 6px 18px rgba(11,33,48,0.08);
+  text-align:center;
+}
+
+.price{ font-size:1.5rem; font-weight:700; margin:6px 0; color:var(--text); }
+.meta{ font-size:0.95rem; color:var(--muted); margin-bottom:8px; }
+
+/* controls */
+.controls{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; align-items:center; margin-top:8px; }
+.controls label{ font-size:0.95rem; color:var(--muted); display:flex; gap:8px; align-items:center; }
+.controls select, .controls input[type="number"] {
+  padding:6px 8px;
+  border-radius:8px;
+  border:1px solid rgba(11,33,48,0.08);
+  background:transparent;
+  color:var(--text);
+}
+button#refresh{
+  background:var(--accent);
+  border:none;
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:600;
+}
+button#refresh:hover{ background:var(--accent-hover); }
+
+/* source text */
+.source{ margin-top:12px; font-size:0.9rem; color:var(--muted); }
+
+/* footer with icons fixed at bottom of page area */
+.footer{
+  width:100%;
+  background: rgba(0,0,0,0.02);
+  display:flex;
+  justify-content:center;
+  gap:18px;
+  padding:12px 0 18px;
+  align-items:center;
+}
+
+/* social icons */
+.social svg { display:block; transition: transform .12s ease, filter .12s ease; }
+.social { display:inline-flex; align-items:center; justify-content:center; text-decoration:none; }
+
+/* hover colors: X -> blue, Discord -> purple */
+.social.x svg line { stroke: #333; transition: stroke .12s ease; }
+.social.x:hover svg line { stroke: #1DA1F2; transform: scale(1.05); }
+
+.social.discord svg path { fill: #333; transition: fill .12s ease, transform .12s ease; }
+.social.discord:hover svg path { fill: #5865F2; transform: scale(1.03); }
+
+
