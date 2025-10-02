@@ -14,9 +14,9 @@ The price updates automatically at user-defined intervals and can be displayed i
 
 ---
 
-## 🚀 Demo
-👉 Live demo (GitHub Pages):  
-`https://YOUR_GITHUB_USERNAME.github.io/celo-price-tracker/`
+## 🚀 Website
+👉 Live Website  
+`https://celo-price-traker.vercel.app`
 
 ---
 
@@ -24,7 +24,9 @@ The price updates automatically at user-defined intervals and can be displayed i
 celo-price-tracker/
 │
 ├── index.html # Main HTML page
-├── style.css # Styling
+├── LICENSE # Open-source license (MIT)
 ├── script.js # JavaScript logic (API calls, DOM updates)
 ├── README.md # Documentation
-└── LICENSE # Open-source license (MIT)
+└── style.css # Styling
+
+
