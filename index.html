@@ -664,8 +664,13 @@
       localStorage.setItem('language', lang);
       document.getElementById('currentLang').textContent = lang.toUpperCase();
       
-      // Update all elements with data-i18n
+      // Update all elements with data-i18n EXCEPT the price display
       document.querySelectorAll('[data-i18n]').forEach(element => {
+        // Skip the price element if it already shows a real price
+        if (element.id === 'price' && !element.textContent.includes('Loading') && !element.textContent.includes('Chargement')) {
+          return;
+        }
+        
         const key = element.getAttribute('data-i18n');
         if (translations[lang] && translations[lang][key]) {
           element.textContent = translations[lang][key];
