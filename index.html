@@ -230,6 +230,72 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
+    
+    /* Alerts list */
+    .alerts-list {
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .alert-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: rgba(0,0,0,0.03);
+      border-radius: 8px;
+      border-left: 4px solid var(--accent);
+    }
+    body.dark-mode .alert-item {
+      background: rgba(255,255,255,0.05);
+    }
+    .alert-item.triggered {
+      border-left-color: #e74c3c;
+      animation: pulse 1s infinite;
+    }
+    .alert-item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .alert-item-price {
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--text);
+    }
+    .alert-item-status {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .alert-item.triggered .alert-item-status {
+      color: #e74c3c;
+      font-weight: 600;
+    }
+    .alert-item-delete {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .alert-item-delete:hover {
+      background: #c0392b;
+    }
+    #add-alert {
+      background: var(--accent);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #add-alert:hover {
+      background: var(--accent-hover);
+    }
 
     /* footer with icons fixed at bottom of page area */
     .footer{
@@ -328,16 +394,15 @@
         </section>
         
         <section class="card alert-section">
-          <h3>Price Alert</h3>
+          <h3>Price Alerts</h3>
           <div class="alert-controls">
             <label>
               Alert when price reaches:
               <input id="alert-price" type="number" step="0.0001" placeholder="0.00" />
             </label>
-            <button id="set-alert">Set Alert</button>
-            <button id="clear-alert" style="display:none;">Clear Alert</button>
+            <button id="add-alert">Add Alert</button>
           </div>
-          <div id="alert-status" class="alert-status"></div>
+          <div id="alerts-list" class="alerts-list"></div>
         </section>
       </div>
     </div>
@@ -386,81 +451,97 @@
       }
     });
     
-    // Price Alert System
+    // Price Alert System - Multiple alerts
     const alertPriceInput = document.getElementById('alert-price');
-    const setAlertBtn = document.getElementById('set-alert');
-    const clearAlertBtn = document.getElementById('clear-alert');
-    const alertStatus = document.getElementById('alert-status');
+    const addAlertBtn = document.getElementById('add-alert');
+    const alertsList = document.getElementById('alerts-list');
     
-    let priceAlert = null;
-    let alertTriggered = false;
+    let priceAlerts = [];
     
-    // Load saved alert
-    const savedAlert = localStorage.getItem('celo_price_alert');
-    if (savedAlert) {
-      priceAlert = JSON.parse(savedAlert);
-      alertPriceInput.value = priceAlert.price;
-      updateAlertUI();
+    // Load saved alerts
+    const savedAlerts = localStorage.getItem('celo_price_alerts');
+    if (savedAlerts) {
+      priceAlerts = JSON.parse(savedAlerts);
+      renderAlerts();
     }
     
-    setAlertBtn.addEventListener('click', () => {
+    addAlertBtn.addEventListener('click', () => {
       const targetPrice = parseFloat(alertPriceInput.value);
       if (isNaN(targetPrice) || targetPrice <= 0) {
-        alertStatus.textContent = '⚠️ Please enter a valid price';
-        alertStatus.className = 'alert-status';
+        alert('⚠️ Please enter a valid price');
         return;
       }
       
       const currency = document.getElementById('currency').value;
-      priceAlert = { price: targetPrice, currency: currency };
-      localStorage.setItem('celo_price_alert', JSON.stringify(priceAlert));
-      alertTriggered = false;
-      updateAlertUI();
-    });
-    
-    clearAlertBtn.addEventListener('click', () => {
-      priceAlert = null;
-      alertTriggered = false;
+      const newAlert = {
+        id: Date.now(),
+        price: targetPrice,
+        currency: currency,
+        triggered: false,
+        createdAt: new Date().toLocaleString()
+      };
+      
+      priceAlerts.push(newAlert);
+      localStorage.setItem('celo_price_alerts', JSON.stringify(priceAlerts));
       alertPriceInput.value = '';
-      localStorage.removeItem('celo_price_alert');
-      updateAlertUI();
+      renderAlerts();
     });
     
-    function updateAlertUI() {
-      if (priceAlert) {
-        clearAlertBtn.style.display = 'inline-block';
-        if (alertTriggered) {
-          alertStatus.textContent = `🔔 Alert triggered! Price reached ${priceAlert.price} ${priceAlert.currency.toUpperCase()}`;
-          alertStatus.className = 'alert-status triggered';
-        } else {
-          alertStatus.textContent = `✓ Alert set for ${priceAlert.price} ${priceAlert.currency.toUpperCase()}`;
-          alertStatus.className = 'alert-status active';
-        }
-      } else {
-        clearAlertBtn.style.display = 'none';
-        alertStatus.textContent = '';
-        alertStatus.className = 'alert-status';
-      }
+    function deleteAlert(id) {
+      priceAlerts = priceAlerts.filter(alert => alert.id !== id);
+      localStorage.setItem('celo_price_alerts', JSON.stringify(priceAlerts));
+      renderAlerts();
     }
     
-    // Check price alert (this should be called from your script.js after fetching price)
-    function checkPriceAlert(currentPrice, currentCurrency) {
-      if (!priceAlert || alertTriggered) return;
-      if (priceAlert.currency !== currentCurrency) return;
+    function renderAlerts() {
+      if (priceAlerts.length === 0) {
+        alertsList.innerHTML = '<p style="text-align:center;color:var(--muted);margin:10px 0;">No alerts set</p>';
+        return;
+      }
       
-      if (currentPrice >= priceAlert.price) {
-        alertTriggered = true;
-        updateAlertUI();
+      alertsList.innerHTML = priceAlerts.map(alert => `
+        <div class="alert-item ${alert.triggered ? 'triggered' : ''}">
+          <div class="alert-item-info">
+            <div class="alert-item-price">${alert.price} ${alert.currency.toUpperCase()}</div>
+            <div class="alert-item-status">
+              ${alert.triggered ? '🔔 Alert triggered!' : '✓ Active'}
+            </div>
+          </div>
+          <button class="alert-item-delete" onclick="deleteAlert(${alert.id})">Delete</button>
+        </div>
+      `).join('');
+    }
+    
+    // Make deleteAlert global
+    window.deleteAlert = deleteAlert;
+    
+    // Check price alerts
+    function checkPriceAlerts(currentPrice, currentCurrency) {
+      let hasNewTrigger = false;
+      
+      priceAlerts.forEach(alert => {
+        if (alert.triggered || alert.currency !== currentCurrency) return;
         
-        // Browser notification if supported
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('CELO Price Alert!', {
-            body: `CELO has reached ${currentPrice} ${currentCurrency.toUpperCase()}`,
-            icon: 'https://cryptocurrencyjobs.co/startups/assets/logos/celo.jpg'
-          });
+        if (currentPrice >= alert.price) {
+          alert.triggered = true;
+          hasNewTrigger = true;
+          
+          // Browser notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('CELO Price Alert!', {
+              body: `CELO has reached ${alert.price} ${alert.currency.toUpperCase()}`,
+              icon: 'https://cryptocurrencyjobs.co/startups/assets/logos/celo.jpg'
+            });
+          }
         }
+      });
+      
+      if (hasNewTrigger) {
+        // Save updated alerts
+        localStorage.setItem('celo_price_alerts', JSON.stringify(priceAlerts));
+        renderAlerts();
         
-        // Audio alert - simple beep
+        // Audio alert
         try {
           const audioContext = new (window.AudioContext || window.webkitAudioContext)();
           const oscillator = audioContext.createOscillator();
@@ -486,8 +567,8 @@
       Notification.requestPermission();
     }
     
-    // Expose checkPriceAlert globally so script.js can call it
-    window.checkPriceAlert = checkPriceAlert;
+    // Expose function globally
+    window.checkPriceAlert = checkPriceAlerts;
   </script>
 </body>
 </html>
