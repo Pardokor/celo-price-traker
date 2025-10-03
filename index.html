@@ -63,7 +63,7 @@
     .dark-mode-toggle {
       position: absolute;
       top: 0;
-      right: 20px;
+      right: 70px;
       background: var(--card-bg);
       border: 1px solid rgba(0,0,0,0.1);
       border-radius: 50%;
@@ -81,6 +81,28 @@
     .dark-mode-toggle svg {
       width: 20px;
       height: 20px;
+    }
+    
+    /* Language toggle button */
+    .language-toggle {
+      position: absolute;
+      top: 0;
+      right: 20px;
+      background: var(--card-bg);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 20px;
+      padding: 8px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: transform 0.2s;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+    .language-toggle:hover {
+      transform: scale(1.05);
     }
 
     /* wrapper pour centrer la card verticalement */
@@ -425,6 +447,9 @@
 <body>
   <main class="main">
     <header class="header">
+      <button class="language-toggle" id="languageToggle">
+        🌐 <span id="currentLang">EN</span>
+      </button>
       <button class="dark-mode-toggle" id="darkModeToggle" aria-label="Toggle dark mode">
         <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="5"/>
@@ -443,18 +468,18 @@
       </button>
       <h1>
         <img src="https://cryptocurrencyjobs.co/startups/assets/logos/celo.jpg" width="50" />
-        CELO Price Tracker
+        <span data-i18n="title">CELO Price Tracker</span>
       </h1>
     </header>
     
     <div class="card-wrapper">
       <div style="width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 20px;">
         <section class="card">
-          <div id="price" class="price">Loading price…</div>
-          <div id="last-update" class="meta">Last update: --:--:--</div>
+          <div id="price" class="price" data-i18n="loading">Loading price…</div>
+          <div id="last-update" class="meta"><span data-i18n="last_update">Last update</span>: --:--:--</div>
           <div class="controls">
             <label>
-              Currency:
+              <span data-i18n="currency">Currency</span>:
               <select id="currency">
                 <option value="usd" selected>USD</option>
                 <option value="eur">EUR</option>
@@ -465,34 +490,34 @@
               </select>
             </label>
             <label>
-              Refresh (s):
+              <span data-i18n="refresh">Refresh</span> (s):
               <input id="interval" type="number" min="5" value="20" />
             </label>
-            <button id="refresh">Refresh now</button>
+            <button id="refresh" data-i18n="refresh_now">Refresh now</button>
           </div>
           <p class="source">
-            Source: <a href="https://www.coingecko.com/" target="_blank" rel="noopener">CoinGecko</a>.
-            (Recommended interval ≥ 20s if you use the free public API).
+            <span data-i18n="source">Source</span>: <a href="https://www.coingecko.com/" target="_blank" rel="noopener">CoinGecko</a>.
+            (<span data-i18n="recommended">Recommended interval ≥ 20s if you use the free public API</span>).
           </p>
         </section>
         
         <section class="card alert-section">
-          <h3>Price Alerts</h3>
+          <h3 data-i18n="price_alerts">Price Alerts</h3>
           <div class="alert-controls">
             <label>
-              Alert when price reaches:
+              <span data-i18n="alert_when">Alert when price reaches</span>:
               <input id="alert-price" type="number" step="0.0001" placeholder="0.00" />
             </label>
-            <button id="add-alert">Add Alert</button>
+            <button id="add-alert" data-i18n="add_alert">Add Alert</button>
           </div>
           <div id="alerts-list" class="alerts-list"></div>
         </section>
         
         <section class="card alert-section">
-          <h3>CELO Converter</h3>
+          <h3 data-i18n="converter">CELO Converter</h3>
           <div class="converter-grid">
             <div class="converter-input-group">
-              <label>Amount in CELO:</label>
+              <label data-i18n="amount_celo">Amount in CELO:</label>
               <input id="celo-amount" type="number" step="0.01" placeholder="0.00" value="1" />
             </div>
             <div class="converter-result">
@@ -503,10 +528,10 @@
               </div>
             </div>
           </div>
-          <div class="converter-divider">OR</div>
+          <div class="converter-divider" data-i18n="or">OR</div>
           <div class="converter-grid">
             <div class="converter-input-group">
-              <label>Amount in Fiat:</label>
+              <label data-i18n="amount_fiat">Amount in Fiat:</label>
               <div style="display: flex; gap: 8px;">
                 <input id="fiat-amount" type="number" step="0.01" placeholder="0.00" value="1" />
                 <select id="fiat-currency" style="padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(11,33,48,0.08); background: transparent; color: var(--text);">
@@ -544,6 +569,128 @@
 
   <script src="script.js"></script>
   <script>
+    // Translations
+    const translations = {
+      en: {
+        title: "CELO Price Tracker",
+        loading: "Loading price…",
+        last_update: "Last update",
+        currency: "Currency",
+        refresh: "Refresh",
+        refresh_now: "Refresh now",
+        source: "Source",
+        recommended: "Recommended interval ≥ 20s if you use the free public API",
+        price_alerts: "Price Alerts",
+        alert_when: "Alert when price reaches",
+        add_alert: "Add Alert",
+        delete: "Delete",
+        active: "Active",
+        triggered: "Alert triggered!",
+        no_alerts: "No alerts set",
+        converter: "CELO Converter",
+        amount_celo: "Amount in CELO:",
+        amount_fiat: "Amount in Fiat:",
+        or: "OR"
+      },
+      fr: {
+        title: "Suivi du Prix CELO",
+        loading: "Chargement du prix…",
+        last_update: "Dernière mise à jour",
+        currency: "Devise",
+        refresh: "Actualiser",
+        refresh_now: "Actualiser maintenant",
+        source: "Source",
+        recommended: "Intervalle recommandé ≥ 20s si vous utilisez l'API publique gratuite",
+        price_alerts: "Alertes de Prix",
+        alert_when: "Alerte lorsque le prix atteint",
+        add_alert: "Ajouter une Alerte",
+        delete: "Supprimer",
+        active: "Active",
+        triggered: "Alerte déclenchée !",
+        no_alerts: "Aucune alerte définie",
+        converter: "Convertisseur CELO",
+        amount_celo: "Montant en CELO :",
+        amount_fiat: "Montant en Fiat :",
+        or: "OU"
+      },
+      es: {
+        title: "Rastreador de Precio CELO",
+        loading: "Cargando precio…",
+        last_update: "Última actualización",
+        currency: "Moneda",
+        refresh: "Actualizar",
+        refresh_now: "Actualizar ahora",
+        source: "Fuente",
+        recommended: "Intervalo recomendado ≥ 20s si usa la API pública gratuita",
+        price_alerts: "Alertas de Precio",
+        alert_when: "Alerta cuando el precio alcance",
+        add_alert: "Agregar Alerta",
+        delete: "Eliminar",
+        active: "Activa",
+        triggered: "¡Alerta activada!",
+        no_alerts: "No hay alertas configuradas",
+        converter: "Convertidor CELO",
+        amount_celo: "Cantidad en CELO:",
+        amount_fiat: "Cantidad en Fiat:",
+        or: "O"
+      },
+      de: {
+        title: "CELO Preis-Tracker",
+        loading: "Preis wird geladen…",
+        last_update: "Letzte Aktualisierung",
+        currency: "Währung",
+        refresh: "Aktualisieren",
+        refresh_now: "Jetzt aktualisieren",
+        source: "Quelle",
+        recommended: "Empfohlenes Intervall ≥ 20s bei kostenloser öffentlicher API",
+        price_alerts: "Preisalarme",
+        alert_when: "Alarm wenn Preis erreicht",
+        add_alert: "Alarm hinzufügen",
+        delete: "Löschen",
+        active: "Aktiv",
+        triggered: "Alarm ausgelöst!",
+        no_alerts: "Keine Alarme gesetzt",
+        converter: "CELO Konverter",
+        amount_celo: "Betrag in CELO:",
+        amount_fiat: "Betrag in Fiat:",
+        or: "ODER"
+      }
+    };
+    
+    let currentLanguage = localStorage.getItem('language') || 'en';
+    
+    function setLanguage(lang) {
+      currentLanguage = lang;
+      localStorage.setItem('language', lang);
+      document.getElementById('currentLang').textContent = lang.toUpperCase();
+      
+      // Update all elements with data-i18n
+      document.querySelectorAll('[data-i18n]').forEach(element => {
+        const key = element.getAttribute('data-i18n');
+        if (translations[lang] && translations[lang][key]) {
+          element.textContent = translations[lang][key];
+        }
+      });
+      
+      // Re-render alerts with new language
+      if (typeof renderAlerts === 'function') {
+        renderAlerts();
+      }
+    }
+    
+    // Language toggle
+    const languageToggle = document.getElementById('languageToggle');
+    const languages = ['en', 'fr', 'es', 'de'];
+    
+    languageToggle.addEventListener('click', () => {
+      const currentIndex = languages.indexOf(currentLanguage);
+      const nextIndex = (currentIndex + 1) % languages.length;
+      setLanguage(languages[nextIndex]);
+    });
+    
+    // Set initial language
+    setLanguage(currentLanguage);
+    
     // Dark mode toggle
     const darkModeToggle = document.getElementById('darkModeToggle');
     const sunIcon = document.querySelector('.sun-icon');
@@ -614,19 +761,24 @@
     
     function renderAlerts() {
       if (priceAlerts.length === 0) {
-        alertsList.innerHTML = '<p style="text-align:center;color:var(--muted);margin:10px 0;">No alerts set</p>';
+        const noAlertsText = translations[currentLanguage]?.no_alerts || 'No alerts set';
+        alertsList.innerHTML = `<p style="text-align:center;color:var(--muted);margin:10px 0;">${noAlertsText}</p>`;
         return;
       }
+      
+      const activeText = translations[currentLanguage]?.active || 'Active';
+      const triggeredText = translations[currentLanguage]?.triggered || 'Alert triggered!';
+      const deleteText = translations[currentLanguage]?.delete || 'Delete';
       
       alertsList.innerHTML = priceAlerts.map(alert => `
         <div class="alert-item ${alert.triggered ? 'triggered' : ''}">
           <div class="alert-item-info">
             <div class="alert-item-price">${alert.price} ${alert.currency.toUpperCase()}</div>
             <div class="alert-item-status">
-              ${alert.triggered ? '🔔 Alert triggered!' : '✓ Active'}
+              ${alert.triggered ? `🔔 ${triggeredText}` : `✓ ${activeText}`}
             </div>
           </div>
-          <button class="alert-item-delete" onclick="deleteAlert(${alert.id})">Delete</button>
+          <button class="alert-item-delete" onclick="deleteAlert(${alert.id})">${deleteText}</button>
         </div>
       `).join('');
     }
