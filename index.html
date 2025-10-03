@@ -672,8 +672,8 @@
         }
       });
       
-      // Re-render alerts with new language
-      if (typeof renderAlerts === 'function') {
+      // Re-render alerts with new language (without triggering API calls)
+      if (priceAlerts && priceAlerts.length >= 0) {
         renderAlerts();
       }
     }
