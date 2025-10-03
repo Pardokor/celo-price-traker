@@ -296,6 +296,89 @@
     #add-alert:hover {
       background: var(--accent-hover);
     }
+    
+    /* Converter styles */
+    .converter-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 12px;
+    }
+    .converter-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .converter-input-group label {
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .converter-input-group input {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(11,33,48,0.08);
+      background: transparent;
+      color: var(--text);
+      font-size: 1rem;
+      width: 100%;
+    }
+    .converter-result {
+      padding: 12px;
+      background: rgba(0,0,0,0.03);
+      border-radius: 8px;
+    }
+    body.dark-mode .converter-result {
+      background: rgba(255,255,255,0.05);
+    }
+    .converted-values {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .converted-item {
+      font-size: 1rem;
+      color: var(--text);
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+    }
+    .converted-item span {
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .converted-item-large {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text);
+      text-align: center;
+    }
+    .converted-item-large span {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .converter-divider {
+      text-align: center;
+      color: var(--muted);
+      font-weight: 600;
+      margin: 12px 0;
+      position: relative;
+    }
+    .converter-divider::before,
+    .converter-divider::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 40%;
+      height: 1px;
+      background: rgba(0,0,0,0.1);
+    }
+    .converter-divider::before {
+      left: 0;
+    }
+    .converter-divider::after {
+      right: 0;
+    }
 
     /* footer with icons fixed at bottom of page area */
     .footer{
@@ -403,6 +486,42 @@
             <button id="add-alert">Add Alert</button>
           </div>
           <div id="alerts-list" class="alerts-list"></div>
+        </section>
+        
+        <section class="card alert-section">
+          <h3>CELO Converter</h3>
+          <div class="converter-grid">
+            <div class="converter-input-group">
+              <label>Amount in CELO:</label>
+              <input id="celo-amount" type="number" step="0.01" placeholder="0.00" value="1" />
+            </div>
+            <div class="converter-result">
+              <div id="converted-values" class="converted-values">
+                <div class="converted-item">USD: <span>--</span></div>
+                <div class="converted-item">EUR: <span>--</span></div>
+                <div class="converted-item">GBP: <span>--</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="converter-divider">OR</div>
+          <div class="converter-grid">
+            <div class="converter-input-group">
+              <label>Amount in Fiat:</label>
+              <div style="display: flex; gap: 8px;">
+                <input id="fiat-amount" type="number" step="0.01" placeholder="0.00" value="1" />
+                <select id="fiat-currency" style="padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(11,33,48,0.08); background: transparent; color: var(--text);">
+                  <option value="usd">USD</option>
+                  <option value="eur">EUR</option>
+                  <option value="gbp">GBP</option>
+                </select>
+              </div>
+            </div>
+            <div class="converter-result">
+              <div class="converted-item-large">
+                CELO: <span id="celo-result">--</span>
+              </div>
+            </div>
+          </div>
         </section>
       </div>
     </div>
@@ -569,6 +688,64 @@
     
     // Expose function globally
     window.checkPriceAlert = checkPriceAlerts;
+    
+    // CELO Converter System
+    const celoAmountInput = document.getElementById('celo-amount');
+    const fiatAmountInput = document.getElementById('fiat-amount');
+    const fiatCurrencySelect = document.getElementById('fiat-currency');
+    const celoResult = document.getElementById('celo-result');
+    
+    let currentPrices = {};
+    
+    // Function to update converter with latest prices
+    function updateConverter() {
+      const celoAmount = parseFloat(celoAmountInput.value) || 0;
+      const fiatAmount = parseFloat(fiatAmountInput.value) || 0;
+      const selectedFiat = fiatCurrencySelect.value;
+      
+      // Update CELO to Fiat conversions
+      if (currentPrices.usd) {
+        document.querySelector('#converted-values .converted-item:nth-child(1) span').textContent = 
+          (celoAmount * currentPrices.usd).toFixed(2);
+      }
+      if (currentPrices.eur) {
+        document.querySelector('#converted-values .converted-item:nth-child(2) span').textContent = 
+          (celoAmount * currentPrices.eur).toFixed(2);
+      }
+      if (currentPrices.gbp) {
+        document.querySelector('#converted-values .converted-item:nth-child(3) span').textContent = 
+          (celoAmount * currentPrices.gbp).toFixed(2);
+      }
+      
+      // Update Fiat to CELO conversion
+      if (currentPrices[selectedFiat]) {
+        const celoValue = fiatAmount / currentPrices[selectedFiat];
+        celoResult.textContent = celoValue.toFixed(4);
+      }
+    }
+    
+    // Fetch all prices for converter
+    async function fetchConverterPrices() {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=celo&vs_currencies=usd,eur,gbp');
+        const data = await res.json();
+        if (data && data.celo) {
+          currentPrices = data.celo;
+          updateConverter();
+        }
+      } catch(err) {
+        console.error('Converter fetch error:', err);
+      }
+    }
+    
+    // Event listeners for converter
+    celoAmountInput.addEventListener('input', updateConverter);
+    fiatAmountInput.addEventListener('input', updateConverter);
+    fiatCurrencySelect.addEventListener('change', updateConverter);
+    
+    // Initial fetch and periodic update
+    fetchConverterPrices();
+    setInterval(fetchConverterPrices, 30000); // Update every 30 seconds
   </script>
 </body>
 </html>
