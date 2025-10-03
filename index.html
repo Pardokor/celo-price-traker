@@ -621,7 +621,7 @@
         refresh: "Actualizar",
         refresh_now: "Actualizar ahora",
         source: "Fuente",
-        recommended: "Intervalo recomendado ≥ 20s si usa la API pública gratuita",
+        recommended: "Intervalo recomendado ≥ 20s",
         price_alerts: "Alertas de Precio",
         alert_when: "Alerta cuando el precio alcance",
         add_alert: "Agregar Alerta",
@@ -642,7 +642,7 @@
         refresh: "Aktualisieren",
         refresh_now: "Jetzt aktualisieren",
         source: "Quelle",
-        recommended: "Empfohlenes Intervall ≥ 20s bei kostenloser öffentlicher API",
+        recommended: "Empfohlenes Intervall ≥ 20s",
         price_alerts: "Preisalarme",
         alert_when: "Alarm wenn Preis erreicht",
         add_alert: "Alarm hinzufügen",
@@ -654,6 +654,27 @@
         amount_celo: "Betrag in CELO:",
         amount_fiat: "Betrag in Fiat:",
         or: "ODER"
+      },
+      uk: {
+        title: "Трекер Ціни CELO",
+        loading: "Завантаження ціни…",
+        last_update: "Останнє оновлення",
+        currency: "Валюта",
+        refresh: "Оновити",
+        refresh_now: "Оновити зараз",
+        source: "Джерело",
+        recommended: "Рекомендований інтервал ≥ 20с",
+        price_alerts: "Цінові Сповіщення",
+        alert_when: "Сповістити коли ціна досягне",
+        add_alert: "Додати Сповіщення",
+        delete: "Видалити",
+        active: "Активне",
+        triggered: "Сповіщення спрацювало!",
+        no_alerts: "Немає налаштованих сповіщень",
+        converter: "Конвертер CELO",
+        amount_celo: "Сума в CELO:",
+        amount_fiat: "Сума у фіаті:",
+        or: "АБО"
       }
     };
     
@@ -685,7 +706,7 @@
     
     // Language toggle
     const languageToggle = document.getElementById('languageToggle');
-    const languages = ['en', 'fr', 'es', 'de'];
+    const languages = ['en', 'fr', 'es', 'de', 'uk'];
     
     languageToggle.addEventListener('click', () => {
       const currentIndex = languages.indexOf(currentLanguage);
