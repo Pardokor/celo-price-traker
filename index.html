@@ -678,7 +678,44 @@
       }
     };
     
+    // Price Alert System - Multiple alerts (DECLARE FIRST)
+    const alertPriceInput = document.getElementById('alert-price');
+    const addAlertBtn = document.getElementById('add-alert');
+    const alertsList = document.getElementById('alerts-list');
+    
+    let priceAlerts = [];
+    
+    // Load saved alerts
+    const savedAlerts = localStorage.getItem('celo_price_alerts');
+    if (savedAlerts) {
+      priceAlerts = JSON.parse(savedAlerts);
+    }
+    
     let currentLanguage = localStorage.getItem('language') || 'en';
+    
+    function renderAlerts() {
+      if (priceAlerts.length === 0) {
+        const noAlertsText = translations[currentLanguage]?.no_alerts || 'No alerts set';
+        alertsList.innerHTML = `<p style="text-align:center;color:var(--muted);margin:10px 0;">${noAlertsText}</p>`;
+        return;
+      }
+      
+      const activeText = translations[currentLanguage]?.active || 'Active';
+      const triggeredText = translations[currentLanguage]?.triggered || 'Alert triggered!';
+      const deleteText = translations[currentLanguage]?.delete || 'Delete';
+      
+      alertsList.innerHTML = priceAlerts.map(alert => `
+        <div class="alert-item ${alert.triggered ? 'triggered' : ''}">
+          <div class="alert-item-info">
+            <div class="alert-item-price">${alert.price} ${alert.currency.toUpperCase()}</div>
+            <div class="alert-item-status">
+              ${alert.triggered ? `🔔 ${triggeredText}` : `✓ ${activeText}`}
+            </div>
+          </div>
+          <button class="alert-item-delete" onclick="deleteAlert(${alert.id})">${deleteText}</button>
+        </div>
+      `).join('');
+    }
     
     function setLanguage(lang) {
       currentLanguage = lang;
@@ -698,10 +735,8 @@
         }
       });
       
-      // Re-render alerts with new language (without triggering API calls)
-      if (priceAlerts && priceAlerts.length >= 0) {
-        renderAlerts();
-      }
+      // Re-render alerts with new language
+      renderAlerts();
     }
     
     // Language toggle
@@ -743,20 +778,7 @@
       }
     });
     
-    // Price Alert System - Multiple alerts
-    const alertPriceInput = document.getElementById('alert-price');
-    const addAlertBtn = document.getElementById('add-alert');
-    const alertsList = document.getElementById('alerts-list');
-    
-    let priceAlerts = [];
-    
-    // Load saved alerts
-    const savedAlerts = localStorage.getItem('celo_price_alerts');
-    if (savedAlerts) {
-      priceAlerts = JSON.parse(savedAlerts);
-      renderAlerts();
-    }
-    
+    // Alert functions
     addAlertBtn.addEventListener('click', () => {
       const targetPrice = parseFloat(alertPriceInput.value);
       if (isNaN(targetPrice) || targetPrice <= 0) {
@@ -785,29 +807,8 @@
       renderAlerts();
     }
     
-    function renderAlerts() {
-      if (priceAlerts.length === 0) {
-        const noAlertsText = translations[currentLanguage]?.no_alerts || 'No alerts set';
-        alertsList.innerHTML = `<p style="text-align:center;color:var(--muted);margin:10px 0;">${noAlertsText}</p>`;
-        return;
-      }
-      
-      const activeText = translations[currentLanguage]?.active || 'Active';
-      const triggeredText = translations[currentLanguage]?.triggered || 'Alert triggered!';
-      const deleteText = translations[currentLanguage]?.delete || 'Delete';
-      
-      alertsList.innerHTML = priceAlerts.map(alert => `
-        <div class="alert-item ${alert.triggered ? 'triggered' : ''}">
-          <div class="alert-item-info">
-            <div class="alert-item-price">${alert.price} ${alert.currency.toUpperCase()}</div>
-            <div class="alert-item-status">
-              ${alert.triggered ? `🔔 ${triggeredText}` : `✓ ${activeText}`}
-            </div>
-          </div>
-          <button class="alert-item-delete" onclick="deleteAlert(${alert.id})">${deleteText}</button>
-        </div>
-      `).join('');
-    }
+    // Initial render
+    renderAlerts();
     
     // Make deleteAlert global
     window.deleteAlert = deleteAlert;
