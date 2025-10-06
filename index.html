@@ -128,6 +128,25 @@
       font-weight:700;
       margin:6px 0;
       color:var(--text);
+      transition: color 0.3s ease;
+    }
+    .price.price-up {
+      color: #27ae60;
+      animation: priceUp 0.5s ease;
+    }
+    .price.price-down {
+      color: #e74c3c;
+      animation: priceDown 0.5s ease;
+    }
+    @keyframes priceUp {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+      100% { transform: translateY(0); }
+    }
+    @keyframes priceDown {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(5px); }
+      100% { transform: translateY(0); }
     }
     .meta{
       font-size:0.95rem;
@@ -932,7 +951,7 @@
     
     // Initial fetch and periodic update
     fetchConverterPrices();
-    setInterval(fetchConverterPrices, 30000); // Update every 30 seconds
+    setInterval(fetchConverterPrices, 60000); // Update every 60 seconds (au lieu de 30)
   </script>
 </body>
 </html>
