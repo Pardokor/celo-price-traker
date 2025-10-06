@@ -949,9 +949,8 @@
     fiatAmountInput.addEventListener('input', updateConverter);
     fiatCurrencySelect.addEventListener('change', updateConverter);
     
-    // Initial fetch and periodic update
+    // Initial fetch only (no periodic update)
     fetchConverterPrices();
-    setInterval(fetchConverterPrices, 60000); // Update every 60 seconds (au lieu de 30)
   </script>
 </body>
 </html>
