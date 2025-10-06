@@ -1,79 +1,957 @@
-// script.js - robust fetch + cache fallback + formatted output
-const API_BASE = "https://api.coingecko.com/api/v3/simple/price?ids=celo&vs_currencies=";
-const priceEl = document.getElementById("price");
-const lastEl = document.getElementById("last-update");
-const currencySel = document.getElementById("currency");
-const intervalInput = document.getElementById("interval");
-const refreshBtn = document.getElementById("refresh");
-let timer = null;
-let lastPrice = null; // ⭐ AJOUTÉ
-
-function formatNumber(num, digits = 6){
-  return Number(num).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: digits });
-}
-
-async function fetchCeloPrice(){
-  const currency = currencySel.value;
-  priceEl.textContent = "Loading price…";
-  lastEl.textContent = "";
-  try{
-    const res = await fetch(API_BASE + encodeURIComponent(currency));
-    if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    const data = await res.json();
-    if(!data || !data.celo || data.celo[currency] == null) throw new Error("Unexpected API response");
-    const raw = Number(data.celo[currency]);
-    if (window.checkPriceAlert) window.checkPriceAlert(raw, currency);
-    
-    // ⭐ ANIMATION DE PRIX - DÉBUT ⭐
-    priceEl.classList.remove('price-up', 'price-down');
-    if (lastPrice !== null && lastPrice !== raw) {
-      if (raw > lastPrice) {
-        priceEl.classList.add('price-up');
-      } else if (raw < lastPrice) {
-        priceEl.classList.add('price-down');
-      }
-      setTimeout(() => {
-        priceEl.classList.remove('price-up', 'price-down');
-      }, 500);
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CELO Price Tracker</title>
+  <style>
+    /* light yellow background, layout with footer at bottom */
+    :root{
+      --bg: #fff9db;
+      --card-bg: #fffef7;
+      --text: #0b2130;
+      --muted: #355066;
+      --accent: #f6c948;
+      --accent-hover: #f2b93a;
     }
-    lastPrice = raw;
-    // ⭐ ANIMATION DE PRIX - FIN ⭐
     
-    priceEl.textContent = `1 CELO = ${formatNumber(raw)} ${currency.toUpperCase()}`;
-    lastEl.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
-    // store for fallback
-    try { localStorage.setItem("celo_last_price", JSON.stringify({ ts: Date.now(), price: raw, currency })); } catch(e){}
-  }catch(err){
-    console.error("Fetch error:", err);
-    // try cache fallback
-    try {
-      const cached = JSON.parse(localStorage.getItem("celo_last_price"));
-      if(cached && cached.price && cached.currency === currency){
-        priceEl.textContent = `1 CELO ≈ ${formatNumber(cached.price)} ${currency.toUpperCase()} (cache)`;
-        lastEl.textContent = `Cached: ${new Date(cached.ts).toLocaleTimeString()}`;
+    body.dark-mode {
+      --bg: #1a1a1a;
+      --card-bg: #2a2a2a;
+      --text: #ffffff;
+      --muted: #b0b0b0;
+      --accent: #f6c948;
+      --accent-hover: #f2b93a;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;padding:0}
+    body{
+      text-align: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, "Helvetica Neue", Arial;
+      display:flex;
+      flex-direction:column;
+      min-height:100vh;
+    }
+
+    /* main takes remaining space so footer stays at bottom */
+    .main{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      padding:28px 16px 12px;
+    }
+
+    /* header/title en haut centré */
+    .header {
+      margin-bottom: 8px;
+      text-align:center;
+      position: relative;
+    }
+    .header h1{
+      font-size:1.9rem;
+      margin:0;
+      font-weight:600;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+    }
+    .celo-logo{width:36px;height:36px;}
+    
+    /* Dark mode toggle button */
+    .dark-mode-toggle {
+      position: absolute;
+      top: 0;
+      right: 70px;
+      background: var(--card-bg);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s;
+    }
+    .dark-mode-toggle:hover {
+      transform: scale(1.1);
+    }
+    .dark-mode-toggle svg {
+      width: 20px;
+      height: 20px;
+    }
+    
+    /* Language toggle button */
+    .language-toggle {
+      position: absolute;
+      top: 0;
+      right: 20px;
+      background: var(--card-bg);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 20px;
+      padding: 8px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: transform 0.2s;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+    .language-toggle:hover {
+      transform: scale(1.05);
+    }
+
+    /* wrapper pour centrer la card verticalement */
+    .card-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* card area */
+    .card{
+      background: var(--card-bg);
+      border-radius:12px;
+      padding:18px;
+      width:100%;
+      max-width:640px;
+      box-shadow: 0 6px 18px rgba(11,33,48,0.08);
+      text-align:center;
+    }
+    .price{
+      font-size:1.5rem;
+      font-weight:700;
+      margin:6px 0;
+      color:var(--text);
+      transition: color 0.3s ease;
+    }
+    .price.price-up {
+      color: #27ae60;
+      animation: priceUp 0.5s ease;
+    }
+    .price.price-down {
+      color: #e74c3c;
+      animation: priceDown 0.5s ease;
+    }
+    @keyframes priceUp {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+      100% { transform: translateY(0); }
+    }
+    @keyframes priceDown {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(5px); }
+      100% { transform: translateY(0); }
+    }
+    .meta{
+      font-size:0.95rem;
+      color:var(--muted);
+      margin-bottom:8px;
+    }
+
+    /* controls */
+    .controls{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      justify-content:center;
+      align-items:center;
+      margin-top:8px;
+    }
+    .controls label{
+      font-size:0.95rem;
+      color:var(--muted);
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .controls select, .controls input[type="number"] {
+      padding:6px 8px;
+      border-radius:8px;
+      border:1px solid rgba(11,33,48,0.08);
+      background:transparent;
+      color:var(--text);
+    }
+    button#refresh{
+      background:var(--accent);
+      border:none;
+      padding:8px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    button#refresh:hover{
+      background:var(--accent-hover);
+    }
+
+    /* source text */
+    .source{
+      margin-top:12px;
+      font-size:0.9rem;
+      color:var(--muted);
+    }
+    .source a {
+      color: var(--text);
+      text-decoration: underline;
+    }
+    
+    /* Alert section */
+    .alert-section {
+      margin-top: 20px;
+      padding: 20px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(11,33,48,0.08);
+    }
+    .alert-section h3 {
+      font-size: 1.1rem;
+      margin: 0 0 12px 0;
+      color: var(--text);
+    }
+    .alert-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+    .alert-controls label {
+      font-size: 0.95rem;
+      color: var(--muted);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .alert-controls input[type="number"] {
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(11,33,48,0.08);
+      background: transparent;
+      color: var(--text);
+      width: 120px;
+    }
+    #set-alert, #clear-alert {
+      background: var(--accent);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #set-alert:hover, #clear-alert:hover {
+      background: var(--accent-hover);
+    }
+    #clear-alert {
+      background: #e74c3c;
+    }
+    #clear-alert:hover {
+      background: #c0392b;
+    }
+    .alert-status {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      min-height: 20px;
+    }
+    .alert-status.active {
+      color: #27ae60;
+      font-weight: 600;
+    }
+    .alert-status.triggered {
+      color: #e74c3c;
+      font-weight: 600;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    /* Alerts list */
+    .alerts-list {
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .alert-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: rgba(0,0,0,0.03);
+      border-radius: 8px;
+      border-left: 4px solid var(--accent);
+    }
+    body.dark-mode .alert-item {
+      background: rgba(255,255,255,0.05);
+    }
+    .alert-item.triggered {
+      border-left-color: #e74c3c;
+      animation: pulse 1s infinite;
+    }
+    .alert-item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .alert-item-price {
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--text);
+    }
+    .alert-item-status {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .alert-item.triggered .alert-item-status {
+      color: #e74c3c;
+      font-weight: 600;
+    }
+    .alert-item-delete {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .alert-item-delete:hover {
+      background: #c0392b;
+    }
+    #add-alert {
+      background: var(--accent);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #add-alert:hover {
+      background: var(--accent-hover);
+    }
+    
+    /* Converter styles */
+    .converter-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 12px;
+    }
+    .converter-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .converter-input-group label {
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .converter-input-group input {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(11,33,48,0.08);
+      background: transparent;
+      color: var(--text);
+      font-size: 1rem;
+      width: 100%;
+    }
+    .converter-result {
+      padding: 12px;
+      background: rgba(0,0,0,0.03);
+      border-radius: 8px;
+    }
+    body.dark-mode .converter-result {
+      background: rgba(255,255,255,0.05);
+    }
+    .converted-values {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .converted-item {
+      font-size: 1rem;
+      color: var(--text);
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+    }
+    .converted-item span {
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .converted-item-large {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text);
+      text-align: center;
+    }
+    .converted-item-large span {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .converter-divider {
+      text-align: center;
+      color: var(--muted);
+      font-weight: 600;
+      margin: 12px 0;
+      position: relative;
+    }
+    .converter-divider::before,
+    .converter-divider::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 40%;
+      height: 1px;
+      background: rgba(0,0,0,0.1);
+    }
+    .converter-divider::before {
+      left: 0;
+    }
+    .converter-divider::after {
+      right: 0;
+    }
+
+    /* footer with icons fixed at bottom of page area */
+    .footer{
+      width:100%;
+      background: rgba(0,0,0,0.02);
+      display:flex;
+      justify-content:center;
+      gap:18px;
+      padding:12px 0 18px;
+      align-items:center;
+    }
+
+    /* social icons */
+    .social svg {
+      display:block;
+      transition: transform .12s ease, filter .12s ease;
+    }
+    .social {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
+    }
+
+    /* hover colors: X -> blue, Discord -> purple */
+    .social.x svg line {
+      stroke: #333;
+      transition: stroke .12s ease;
+    }
+    .social.x:hover svg line {
+      stroke: #1DA1F2;
+      transform: scale(1.05);
+    }
+    .social.discord svg path {
+      fill: #333;
+      transition: fill .12s ease, transform .12s ease;
+    }
+    .social.discord:hover svg path {
+      fill: #5865F2;
+      transform: scale(1.03);
+    }
+  </style>
+</head>
+<body>
+  <main class="main">
+    <header class="header">
+      <button class="language-toggle" id="languageToggle">
+        🌐 <span id="currentLang">EN</span>
+      </button>
+      <button class="dark-mode-toggle" id="darkModeToggle" aria-label="Toggle dark mode">
+        <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="moon-icon" style="display:none;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <h1>
+        <img src="https://cryptocurrencyjobs.co/startups/assets/logos/celo.jpg" width="50" />
+        <span data-i18n="title">CELO Price Tracker</span>
+      </h1>
+    </header>
+    
+    <div class="card-wrapper">
+      <div style="width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 20px;">
+        <section class="card">
+          <div id="price" class="price" data-i18n="loading">Loading price…</div>
+          <div id="last-update" class="meta"><span data-i18n="last_update">Last update</span>: --:--:--</div>
+          <div class="controls">
+            <label>
+              <span data-i18n="currency">Currency</span>:
+              <select id="currency">
+                <option value="usd" selected>USD</option>
+                <option value="eur">EUR</option>
+                <option value="gbp">GBP</option>
+                <option value="uah">UAH</option>
+                <option value="btc">BTC</option>
+                <option value="eth">ETH</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="refresh">Refresh</span> (s):
+              <input id="interval" type="number" min="5" value="20" />
+            </label>
+            <button id="refresh" data-i18n="refresh_now">Refresh now</button>
+          </div>
+          <p class="source">
+            <span data-i18n="source">Source</span>: <a href="https://www.coingecko.com/" target="_blank" rel="noopener">CoinGecko</a>.
+            (<span data-i18n="recommended">Recommended interval ≥ 20s</span>).
+          </p>
+        </section>
+        
+        <section class="card alert-section">
+          <h3 data-i18n="price_alerts">Price Alerts</h3>
+          <div class="alert-controls">
+            <label>
+              <span data-i18n="alert_when">Alert when price reaches</span>:
+              <input id="alert-price" type="number" step="0.0001" placeholder="0.00" />
+            </label>
+            <button id="add-alert" data-i18n="add_alert">Add Alert</button>
+          </div>
+          <div id="alerts-list" class="alerts-list"></div>
+        </section>
+        
+        <section class="card alert-section">
+          <h3 data-i18n="converter">CELO Converter</h3>
+          <div class="converter-grid">
+            <div class="converter-input-group">
+              <label data-i18n="amount_celo">Amount in CELO:</label>
+              <input id="celo-amount" type="number" step="0.01" placeholder="0.00" value="1" />
+            </div>
+            <div class="converter-result">
+              <div id="converted-values" class="converted-values">
+                <div class="converted-item">USD: <span>--</span></div>
+                <div class="converted-item">EUR: <span>--</span></div>
+                <div class="converted-item">GBP: <span>--</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="converter-divider" data-i18n="or">OR</div>
+          <div class="converter-grid">
+            <div class="converter-input-group">
+              <label data-i18n="amount_fiat">Amount in Fiat:</label>
+              <div style="display: flex; gap: 8px;">
+                <input id="fiat-amount" type="number" step="0.01" placeholder="0.00" value="1" />
+                <select id="fiat-currency" style="padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(11,33,48,0.08); background: transparent; color: var(--text);">
+                  <option value="usd">USD</option>
+                  <option value="eur">EUR</option>
+                  <option value="gbp">GBP</option>
+                </select>
+              </div>
+            </div>
+            <div class="converter-result">
+              <div class="converted-item-large">
+                CELO: <span id="celo-result">--</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <a class="social x" href="https://x.com/Celo" target="_blank" rel="noopener" aria-label="Celo on X">
+      <!-- X (Twitter) logo -->
+      <svg width="28" height="28" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="#333"/>
+      </svg>
+    </a>
+    <a class="social discord" href="https://discord.com/invite/celo" target="_blank" rel="noopener" aria-label="Celo on Discord">
+      <!-- Discord logo -->
+      <svg width="28" height="28" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z" fill="#333"/>
+      </svg>
+    </a>
+    <a class="social farcaster" href="https://farcaster.xyz/celo" target="_blank" rel="noopener" aria-label="Celo on Farcaster">
+      <!-- Farcaster logo - simplified F -->
+      <svg width="28" height="28" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M257.778 155.556H742.222V844.445H671.111V528.889H670.414C662.554 441.677 589.258 373.333 500 373.333C410.742 373.333 337.446 441.677 329.586 528.889H328.889V844.445H257.778V155.556Z" fill="#333"/>
+        <path d="M128.889 253.333L157.778 351.111H182.222V746.667C169.949 746.667 160 756.616 160 768.889V795.556H155.556C143.283 795.556 133.333 805.505 133.333 817.778V844.445H382.222V817.778C382.222 805.505 372.273 795.556 360 795.556H355.556V768.889C355.556 756.616 345.606 746.667 333.333 746.667H306.667V253.333H128.889Z" fill="#333"/>
+        <path d="M675.556 746.667V390C675.556 390 728.889 376.667 728.889 250H800V746.667C812.273 746.667 822.222 756.616 822.222 768.889V795.556H826.667C838.94 795.556 848.889 805.505 848.889 817.778V844.445H600V817.778C600 805.505 609.949 795.556 622.222 795.556H626.667V768.889C626.667 756.616 636.616 746.667 648.889 746.667H675.556Z" fill="#333"/>
+      </svg>
+    </a>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    // Translations
+    const translations = {
+      en: {
+        title: "CELO Price Tracker",
+        loading: "Loading price…",
+        last_update: "Last update",
+        currency: "Currency",
+        refresh: "Refresh",
+        refresh_now: "Refresh now",
+        source: "Source",
+        recommended: "Recommended interval ≥ 20s",
+        price_alerts: "Price Alerts",
+        alert_when: "Alert when price reaches",
+        add_alert: "Add Alert",
+        delete: "Delete",
+        active: "Active",
+        triggered: "Alert triggered!",
+        no_alerts: "No alerts set",
+        converter: "CELO Converter",
+        amount_celo: "Amount in CELO:",
+        amount_fiat: "Amount in Fiat:",
+        or: "OR"
+      },
+      fr: {
+        title: "Suivi du Prix CELO",
+        loading: "Chargement du prix…",
+        last_update: "Dernière mise à jour",
+        currency: "Devise",
+        refresh: "Actualiser",
+        refresh_now: "Actualiser maintenant",
+        source: "Source",
+        recommended: "Intervalle recommandé ≥ 20s",
+        price_alerts: "Alertes de Prix",
+        alert_when: "Alerte lorsque le prix atteint",
+        add_alert: "Ajouter une Alerte",
+        delete: "Supprimer",
+        active: "Active",
+        triggered: "Alerte déclenchée !",
+        no_alerts: "Aucune alerte définie",
+        converter: "Convertisseur CELO",
+        amount_celo: "Montant en CELO :",
+        amount_fiat: "Montant en Fiat :",
+        or: "OU"
+      },
+      es: {
+        title: "Rastreador de Precio CELO",
+        loading: "Cargando precio…",
+        last_update: "Última actualización",
+        currency: "Moneda",
+        refresh: "Actualizar",
+        refresh_now: "Actualizar ahora",
+        source: "Fuente",
+        recommended: "Intervalo recomendado ≥ 20s",
+        price_alerts: "Alertas de Precio",
+        alert_when: "Alerta cuando el precio alcance",
+        add_alert: "Agregar Alerta",
+        delete: "Eliminar",
+        active: "Activa",
+        triggered: "¡Alerta activada!",
+        no_alerts: "No hay alertas configuradas",
+        converter: "Convertidor CELO",
+        amount_celo: "Cantidad en CELO:",
+        amount_fiat: "Cantidad en Fiat:",
+        or: "O"
+      },
+      de: {
+        title: "CELO Preis-Tracker",
+        loading: "Preis wird geladen…",
+        last_update: "Letzte Aktualisierung",
+        currency: "Währung",
+        refresh: "Aktualisieren",
+        refresh_now: "Jetzt aktualisieren",
+        source: "Quelle",
+        recommended: "Empfohlenes Intervall ≥ 20s",
+        price_alerts: "Preisalarme",
+        alert_when: "Alarm wenn Preis erreicht",
+        add_alert: "Alarm hinzufügen",
+        delete: "Löschen",
+        active: "Aktiv",
+        triggered: "Alarm ausgelöst!",
+        no_alerts: "Keine Alarme gesetzt",
+        converter: "CELO Konverter",
+        amount_celo: "Betrag in CELO:",
+        amount_fiat: "Betrag in Fiat:",
+        or: "ODER"
+      },
+      uk: {
+        title: "Трекер Ціни CELO",
+        loading: "Завантаження ціни…",
+        last_update: "Останнє оновлення",
+        currency: "Валюта",
+        refresh: "Оновити",
+        refresh_now: "Оновити зараз",
+        source: "Джерело",
+        recommended: "Рекомендований інтервал ≥ 20с",
+        price_alerts: "Цінові Сповіщення",
+        alert_when: "Сповістити коли ціна досягне",
+        add_alert: "Додати Сповіщення",
+        delete: "Видалити",
+        active: "Активне",
+        triggered: "Сповіщення спрацювало!",
+        no_alerts: "Немає налаштованих сповіщень",
+        converter: "Конвертер CELO",
+        amount_celo: "Сума в CELO:",
+        amount_fiat: "Сума у фіаті:",
+        or: "АБО"
+      }
+    };
+    
+    // Price Alert System - Multiple alerts (DECLARE FIRST)
+    const alertPriceInput = document.getElementById('alert-price');
+    const addAlertBtn = document.getElementById('add-alert');
+    const alertsList = document.getElementById('alerts-list');
+    
+    let priceAlerts = [];
+    
+    // Load saved alerts
+    const savedAlerts = localStorage.getItem('celo_price_alerts');
+    if (savedAlerts) {
+      priceAlerts = JSON.parse(savedAlerts);
+    }
+    
+    let currentLanguage = localStorage.getItem('language') || 'en';
+    
+    function renderAlerts() {
+      if (priceAlerts.length === 0) {
+        const noAlertsText = translations[currentLanguage]?.no_alerts || 'No alerts set';
+        alertsList.innerHTML = `<p style="text-align:center;color:var(--muted);margin:10px 0;">${noAlertsText}</p>`;
+        return;
+      }
+      
+      const activeText = translations[currentLanguage]?.active || 'Active';
+      const triggeredText = translations[currentLanguage]?.triggered || 'Alert triggered!';
+      const deleteText = translations[currentLanguage]?.delete || 'Delete';
+      
+      alertsList.innerHTML = priceAlerts.map(alert => `
+        <div class="alert-item ${alert.triggered ? 'triggered' : ''}">
+          <div class="alert-item-info">
+            <div class="alert-item-price">${alert.price} ${alert.currency.toUpperCase()}</div>
+            <div class="alert-item-status">
+              ${alert.triggered ? `🔔 ${triggeredText}` : `✓ ${activeText}`}
+            </div>
+          </div>
+          <button class="alert-item-delete" onclick="deleteAlert(${alert.id})">${deleteText}</button>
+        </div>
+      `).join('');
+    }
+    
+    function setLanguage(lang) {
+      currentLanguage = lang;
+      localStorage.setItem('language', lang);
+      document.getElementById('currentLang').textContent = lang.toUpperCase();
+      
+      // Update all elements with data-i18n EXCEPT the price display
+      document.querySelectorAll('[data-i18n]').forEach(element => {
+        // Skip the price element if it already shows a real price
+        if (element.id === 'price' && !element.textContent.includes('Loading') && !element.textContent.includes('Chargement')) {
+          return;
+        }
+        
+        const key = element.getAttribute('data-i18n');
+        if (translations[lang] && translations[lang][key]) {
+          element.textContent = translations[lang][key];
+        }
+      });
+      
+      // Re-render alerts with new language
+      renderAlerts();
+    }
+    
+    // Language toggle
+    const languageToggle = document.getElementById('languageToggle');
+    const languages = ['en', 'fr', 'es', 'de', 'uk'];
+    
+    languageToggle.addEventListener('click', () => {
+      const currentIndex = languages.indexOf(currentLanguage);
+      const nextIndex = (currentIndex + 1) % languages.length;
+      setLanguage(languages[nextIndex]);
+    });
+    
+    // Set initial language
+    setLanguage(currentLanguage);
+    
+    // Dark mode toggle
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const sunIcon = document.querySelector('.sun-icon');
+    const moonIcon = document.querySelector('.moon-icon');
+    
+    // Check saved preference
+    if (localStorage.getItem('darkMode') === 'enabled') {
+      document.body.classList.add('dark-mode');
+      sunIcon.style.display = 'none';
+      moonIcon.style.display = 'block';
+    }
+    
+    darkModeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+      
+      if (document.body.classList.contains('dark-mode')) {
+        localStorage.setItem('darkMode', 'enabled');
+        sunIcon.style.display = 'none';
+        moonIcon.style.display = 'block';
       } else {
-        priceEl.textContent = "Error fetching price.";
-        lastEl.textContent = `Error: ${err.message}`;
+        localStorage.setItem('darkMode', 'disabled');
+        sunIcon.style.display = 'block';
+        moonIcon.style.display = 'none';
       }
-    } catch(e){
-      priceEl.textContent = "Error fetching price.";
-      lastEl.textContent = `Error: ${err.message}`;
+    });
+    
+    // Alert functions
+    addAlertBtn.addEventListener('click', () => {
+      const targetPrice = parseFloat(alertPriceInput.value);
+      if (isNaN(targetPrice) || targetPrice <= 0) {
+        alert('⚠️ Please enter a valid price');
+        return;
+      }
+      
+      const currency = document.getElementById('currency').value;
+      const newAlert = {
+        id: Date.now(),
+        price: targetPrice,
+        currency: currency,
+        triggered: false,
+        createdAt: new Date().toLocaleString()
+      };
+      
+      priceAlerts.push(newAlert);
+      localStorage.setItem('celo_price_alerts', JSON.stringify(priceAlerts));
+      alertPriceInput.value = '';
+      renderAlerts();
+    });
+    
+    function deleteAlert(id) {
+      priceAlerts = priceAlerts.filter(alert => alert.id !== id);
+      localStorage.setItem('celo_price_alerts', JSON.stringify(priceAlerts));
+      renderAlerts();
     }
-  }
-}
-
-function startAutoRefresh(){
-  if(timer) clearInterval(timer);
-  const sec = Math.max(5, parseInt(intervalInput.value, 10) || 15);
-  fetchCeloPrice(); // immediate
-  timer = setInterval(fetchCeloPrice, sec * 1000);
-}
-
-/* events */
-refreshBtn.addEventListener("click", fetchCeloPrice);
-currencySel.addEventListener("change", fetchCeloPrice);
-intervalInput.addEventListener("change", startAutoRefresh);
-
-/* init */
-fetchCeloPrice();
-startAutoRefresh();
+    
+    // Initial render
+    renderAlerts();
+    
+    // Make deleteAlert global
+    window.deleteAlert = deleteAlert;
+    
+    // Check price alerts
+    function checkPriceAlerts(currentPrice, currentCurrency) {
+      let hasNewTrigger = false;
+      
+      priceAlerts.forEach(alert => {
+        if (alert.triggered || alert.currency !== currentCurrency) return;
+        
+        if (currentPrice >= alert.price) {
+          alert.triggered = true;
+          hasNewTrigger = true;
+          
+          // Browser notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('CELO Price Alert!', {
+              body: `CELO has reached ${alert.price} ${alert.currency.toUpperCase()}`,
+              icon: 'https://cryptocurrencyjobs.co/startups/assets/logos/celo.jpg'
+            });
+          }
+        }
+      });
+      
+      if (hasNewTrigger) {
+        // Save updated alerts
+        localStorage.setItem('celo_price_alerts', JSON.stringify(priceAlerts));
+        renderAlerts();
+        
+        // Audio alert
+        try {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.frequency.value = 800;
+          oscillator.type = 'sine';
+          gainNode.gain.value = 0.3;
+          
+          oscillator.start();
+          setTimeout(() => oscillator.stop(), 200);
+        } catch(e) {
+          console.log('Audio play failed:', e);
+        }
+      }
+    }
+    
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    
+    // Expose function globally
+    window.checkPriceAlert = checkPriceAlerts;
+    
+    // CELO Converter System
+    const celoAmountInput = document.getElementById('celo-amount');
+    const fiatAmountInput = document.getElementById('fiat-amount');
+    const fiatCurrencySelect = document.getElementById('fiat-currency');
+    const celoResult = document.getElementById('celo-result');
+    
+    let currentPrices = {};
+    
+    // Function to update converter with latest prices
+    function updateConverter() {
+      const celoAmount = parseFloat(celoAmountInput.value) || 0;
+      const fiatAmount = parseFloat(fiatAmountInput.value) || 0;
+      const selectedFiat = fiatCurrencySelect.value;
+      
+      // Update CELO to Fiat conversions
+      if (currentPrices.usd) {
+        document.querySelector('#converted-values .converted-item:nth-child(1) span').textContent = 
+          (celoAmount * currentPrices.usd).toFixed(2);
+      }
+      if (currentPrices.eur) {
+        document.querySelector('#converted-values .converted-item:nth-child(2) span').textContent = 
+          (celoAmount * currentPrices.eur).toFixed(2);
+      }
+      if (currentPrices.gbp) {
+        document.querySelector('#converted-values .converted-item:nth-child(3) span').textContent = 
+          (celoAmount * currentPrices.gbp).toFixed(2);
+      }
+      
+      // Update Fiat to CELO conversion
+      if (currentPrices[selectedFiat]) {
+        const celoValue = fiatAmount / currentPrices[selectedFiat];
+        celoResult.textContent = celoValue.toFixed(4);
+      }
+    }
+    
+    // Fetch all prices for converter
+    async function fetchConverterPrices() {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=celo&vs_currencies=usd,eur,gbp');
+        const data = await res.json();
+        if (data && data.celo) {
+          currentPrices = data.celo;
+          updateConverter();
+        }
+      } catch(err) {
+        console.error('Converter fetch error:', err);
+      }
+    }
+    
+    // Event listeners for converter
+    celoAmountInput.addEventListener('input', updateConverter);
+    fiatAmountInput.addEventListener('input', updateConverter);
+    fiatCurrencySelect.addEventListener('change', updateConverter);
+    
+    // Initial fetch and periodic update
+    fetchConverterPrices();
+    setInterval(fetchConverterPrices, 60000); // Update every 60 seconds (au lieu de 30)
+  </script>
+</body>
+</html>
